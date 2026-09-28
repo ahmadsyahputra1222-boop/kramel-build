@@ -57,7 +57,7 @@ ZIPNAME="Severn-v1"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
-@hebattkamuu"
+AUTHOR="@hebattkamuu"
 
 # Architecture
 ARCH=arm64
