@@ -53,11 +53,11 @@ KERNEL_DIR="$(pwd)"
 BASEDIR="$(basename "$KERNEL_DIR")"
 
 # The name of the Kernel, to name the ZIP
-ZIPNAME="Severn-v1-HighRam"
+ZIPNAME="Clover-test-v1"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
-AUTHOR="@hebattkamuu"
+AUTHOR="Aspfork"
 
 # Architecture
 ARCH=arm64
@@ -104,10 +104,6 @@ FILES=Image.gz
 # Build dtbo.img (select this only if your source has support to building dtbo.img)
 # 1 is YES | 0 is NO(default)
 BUILD_DTBO=0
-
-# Replace Simple LMK (kills apps aggressively, e.g. background music) with Android's lmkd (PSI)
-# 1 is YES(default) | 0 is NO
-LMKD=1
 
 # PATCH KERNELSU
 KSU=1
@@ -300,15 +296,6 @@ make O=out $DEFCONFIG
 
 # Disable 32-bit compat vDSO (fails to build with clang: __NR_compat_* undeclared)
 scripts/config --file out/.config -d COMPAT_VDSO
-if [ "$LMKD" = "1" ]
-then
-	# fog.config disables PSI/MEMCG/userspace LMK and enables Simple LMK, which kills
-	# background/foreground-service apps under pressure. Use stock lmkd instead.
-	scripts/config --file out/.config \
-		-d ANDROID_SIMPLE_LMK \
-		-e PSI -d MEMCG -d MEMCG_SWAP \
-		-e HAVE_USERSPACE_LOW_MEMORY_KILLER
-fi
 if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ]
 then
 	scripts/config --file out/.config \
