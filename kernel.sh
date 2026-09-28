@@ -306,7 +306,7 @@ then
 	# background/foreground-service apps under pressure. Use stock lmkd instead.
 	scripts/config --file out/.config \
 		-d ANDROID_SIMPLE_LMK \
-		-e PSI -e MEMCG -e MEMCG_SWAP \
+		-e PSI -d MEMCG -d MEMCG_SWAP \
 		-e HAVE_USERSPACE_LOW_MEMORY_KILLER
 fi
 if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ]
