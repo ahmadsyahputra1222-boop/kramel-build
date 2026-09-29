@@ -53,7 +53,7 @@ KERNEL_DIR="$(pwd)"
 BASEDIR="$(basename "$KERNEL_DIR")"
 
 # The name of the Kernel, to name the ZIP
-ZIPNAME="SevernV1-BostPerf-NDKSU"
+ZIPNAME="SevernV1-NDKSU"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
@@ -111,6 +111,13 @@ BUILD_DTBO=0
 # by the bootloader firmware and can't be raised from the kernel.
 # 1 is YES(default) | 0 is NO
 PERF_BOOST=1
+
+# Mild GPU overclock (Adreno 610): +50 MHz on the top power level
+# (980 -> 1030 MHz on bin 0/206, 950 -> 1000 MHz on bin 200). Voltage stays at
+# TURBO_L1, so it may be unstable/hot on some units. CPU can NOT be overclocked.
+# If the phone bootloops or the GPU crashes, set this back to 0.
+# 1 is YES | 0 is NO(default)
+GPU_OC=1
 
 # PATCH KERNELSU
 KSU=1
@@ -297,6 +304,81 @@ if [ "$PTTG" = 1 ]; then
     TG_MSG+="*Top Commit:* \`$COMMIT_HEAD\`"
     
     tg_post_msg "$TG_MSG"
+fi
+
+if [ "$GPU_OC" = "1" ]
+then
+	msger -n "|| Applying GPU OC patch (+50MHz) ||"
+	patch -p1 --forward <<'GPU_OC_PATCH'
+diff -ruN a/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi b/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi
+--- a/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi	2026-09-29 08:21:48.234284048 +0000
++++ b/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi	2026-09-29 08:21:48.284934968 +0000
+@@ -9,6 +9,16 @@
+ 	gpu_opp_table: gpu-opp-table {
+ 		compatible = "operating-points-v2";
+ 
++		opp-1030000000 {
++			opp-hz = /bits/ 64 <1030000000>;
++			opp-microvolt = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
++		};
++
++		opp-1000000000 {
++			opp-hz = /bits/ 64 <1000000000>;
++			opp-microvolt = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
++		};
++
+ 		opp-980000000 {
+ 			opp-hz = /bits/ 64 <980000000>;
+ 			opp-microvolt = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
+@@ -280,7 +290,7 @@
+ 				/* TURBO_L1 */
+ 				qcom,gpu-pwrlevel@0 {
+ 					reg = <0>;
+-					qcom,gpu-freq = <980000000>;
++					qcom,gpu-freq = <1030000000>;
+ 					qcom,bus-freq = <11>;
+ 					qcom,bus-min = <10>;
+ 					qcom,bus-max = <11>;
+@@ -362,7 +372,7 @@
+ 				/* TURBO_L1 */
+ 				qcom,gpu-pwrlevel@0 {
+ 					reg = <0>;
+-					qcom,gpu-freq = <980000000>;
++					qcom,gpu-freq = <1030000000>;
+ 					qcom,bus-freq = <11>;
+ 					qcom,bus-min = <10>;
+ 					qcom,bus-max = <11>;
+@@ -444,7 +454,7 @@
+ 				/* TURBO_L1 */
+ 				qcom,gpu-pwrlevel@0 {
+ 					reg = <0>;
+-					qcom,gpu-freq = <950000000>;
++					qcom,gpu-freq = <1000000000>;
+ 					qcom,bus-freq = <11>;
+ 					qcom,bus-min = <10>;
+ 					qcom,bus-max = <11>;
+diff -ruN a/drivers/clk/qcom/gpucc-bengal.c b/drivers/clk/qcom/gpucc-bengal.c
+--- a/drivers/clk/qcom/gpucc-bengal.c	2026-09-29 08:21:48.231997503 +0000
++++ b/drivers/clk/qcom/gpucc-bengal.c	2026-09-29 08:21:48.285117771 +0000
+@@ -236,6 +236,8 @@
+ 	F(900000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
+ 	F(950000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
+ 	F(980000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
++	F(1000000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
++	F(1030000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
+ 	{ }
+ };
+ 
+@@ -260,7 +262,7 @@
+ 			[VDD_NOMINAL] = 745000000,
+ 			[VDD_NOMINAL_L1] = 820000000,
+ 			[VDD_HIGH] = 900000000,
+-			[VDD_HIGH_L1] = 980000000},
++			[VDD_HIGH_L1] = 1030000000},
+ 	},
+ };
+ 
+GPU_OC_PATCH
 fi
 
 make O=out $DEFCONFIG
