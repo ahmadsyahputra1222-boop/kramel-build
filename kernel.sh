@@ -53,7 +53,7 @@ KERNEL_DIR="$(pwd)"
 BASEDIR="$(basename "$KERNEL_DIR")"
 
 # The name of the Kernel, to name the ZIP
-ZIPNAME="SevernV1-GpuOc-NDKSU"
+ZIPNAME="SevernV1-NDKSU"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
@@ -112,9 +112,12 @@ BUILD_DTBO=0
 # 1 is YES(default) | 0 is NO
 PERF_BOOST=1
 
-# Mild GPU overclock (Adreno 610): +50 MHz on the top power level
-# (980 -> 1030 MHz on bin 0/206, 950 -> 1000 MHz on bin 200). Voltage stays at
-# TURBO_L1, so it may be unstable/hot on some units. CPU can NOT be overclocked.
+# Mild GPU overclock (Adreno 610, SD680 "khaje"): the speed-bin 235 chips top
+# out at 1114.8 MHz; this raises the top level to 1180 MHz (+65 MHz). The clock
+# driver already supports the higher voltage corner (HIGH_L2) used for this.
+# To try 1260 MHz instead (what speed-bin 0 gets), change 1180000000 to
+# 1260000000 in the patch below (no clock-driver change needed).
+# CPU can NOT be overclocked (frequency table is fixed in firmware).
 # If the phone bootloops or the GPU crashes, set this back to 0.
 # 1 is YES | 0 is NO(default)
 GPU_OC=1
@@ -308,76 +311,31 @@ fi
 
 if [ "$GPU_OC" = "1" ]
 then
-	msger -n "|| Applying GPU OC patch (+50MHz) ||"
+	msger -n "|| Applying GPU OC patch (1114.8 -> 1180MHz) ||"
 	patch -p1 --forward <<'GPU_OC_PATCH'
-diff -ruN a/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi b/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi
---- a/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi	2026-09-29 08:21:48.234284048 +0000
-+++ b/arch/arm64/boot/dts/vendor/qcom/bengal-gpu.dtsi	2026-09-29 08:21:48.284934968 +0000
-@@ -9,6 +9,16 @@
- 	gpu_opp_table: gpu-opp-table {
- 		compatible = "operating-points-v2";
- 
-+		opp-1030000000 {
-+			opp-hz = /bits/ 64 <1030000000>;
-+			opp-microvolt = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
-+		};
-+
-+		opp-1000000000 {
-+			opp-hz = /bits/ 64 <1000000000>;
-+			opp-microvolt = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
-+		};
-+
- 		opp-980000000 {
- 			opp-hz = /bits/ 64 <980000000>;
- 			opp-microvolt = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
-@@ -280,7 +290,7 @@
- 				/* TURBO_L1 */
- 				qcom,gpu-pwrlevel@0 {
- 					reg = <0>;
--					qcom,gpu-freq = <980000000>;
-+					qcom,gpu-freq = <1030000000>;
- 					qcom,bus-freq = <11>;
- 					qcom,bus-min = <10>;
- 					qcom,bus-max = <11>;
-@@ -362,7 +372,7 @@
- 				/* TURBO_L1 */
- 				qcom,gpu-pwrlevel@0 {
- 					reg = <0>;
--					qcom,gpu-freq = <980000000>;
-+					qcom,gpu-freq = <1030000000>;
- 					qcom,bus-freq = <11>;
- 					qcom,bus-min = <10>;
- 					qcom,bus-max = <11>;
-@@ -444,7 +454,7 @@
- 				/* TURBO_L1 */
- 				qcom,gpu-pwrlevel@0 {
- 					reg = <0>;
--					qcom,gpu-freq = <950000000>;
-+					qcom,gpu-freq = <1000000000>;
- 					qcom,bus-freq = <11>;
- 					qcom,bus-min = <10>;
- 					qcom,bus-max = <11>;
-diff -ruN a/drivers/clk/qcom/gpucc-bengal.c b/drivers/clk/qcom/gpucc-bengal.c
---- a/drivers/clk/qcom/gpucc-bengal.c	2026-09-29 08:21:48.231997503 +0000
-+++ b/drivers/clk/qcom/gpucc-bengal.c	2026-09-29 08:21:48.285117771 +0000
-@@ -236,6 +236,8 @@
- 	F(900000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
- 	F(950000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
- 	F(980000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
-+	F(1000000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
-+	F(1030000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
+diff -ruN a/arch/arm64/boot/dts/vendor/qcom/khaje.dtsi b/arch/arm64/boot/dts/vendor/qcom/khaje.dtsi
+--- a/arch/arm64/boot/dts/vendor/qcom/khaje.dtsi	2026-09-29 11:36:01.706566646 +0000
++++ b/arch/arm64/boot/dts/vendor/qcom/khaje.dtsi	2026-09-29 11:36:01.744306780 +0000
+@@ -3803,7 +3803,7 @@
+ 			/* TURBO_L1 */
+ 			qcom,gpu-pwrlevel@0 {
+ 				reg = <0>;
+-				qcom,gpu-freq = <1114800000>;
++				qcom,gpu-freq = <1180000000>;
+ 				qcom,bus-freq = <7>;
+ 				qcom,bus-min = <7>;
+ 				qcom,bus-max = <7>;
+diff -ruN a/drivers/clk/qcom/gpucc-khaje.c b/drivers/clk/qcom/gpucc-khaje.c
+--- a/drivers/clk/qcom/gpucc-khaje.c	2026-09-29 11:36:01.707935266 +0000
++++ b/drivers/clk/qcom/gpucc-khaje.c	2026-09-29 11:36:01.744466571 +0000
+@@ -206,6 +206,7 @@
+ 	F(1025000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
+ 	F(1100000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
+ 	F(1114800000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
++	F(1180000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
+ 	F(1260000000, P_GPU_CC_PLL0_OUT_MAIN, 1, 0, 0),
  	{ }
  };
- 
-@@ -260,7 +262,7 @@
- 			[VDD_NOMINAL] = 745000000,
- 			[VDD_NOMINAL_L1] = 820000000,
- 			[VDD_HIGH] = 900000000,
--			[VDD_HIGH_L1] = 980000000},
-+			[VDD_HIGH_L1] = 1030000000},
- 	},
- };
- 
 GPU_OC_PATCH
 fi
 
