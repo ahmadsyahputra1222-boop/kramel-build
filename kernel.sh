@@ -53,7 +53,7 @@ KERNEL_DIR="$(pwd)"
 BASEDIR="$(basename "$KERNEL_DIR")"
 
 # The name of the Kernel, to name the ZIP
-ZIPNAME="SevernV1-BostPerf-NDKSU"
+ZIPNAME="SevernV1-NDKSU"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
@@ -305,8 +305,13 @@ make O=out $DEFCONFIG
 scripts/config --file out/.config -d COMPAT_VDSO
 if [ "$PERF_BOOST" = "1" ]
 then
+	# NOTE: SCHED_WALT is intentionally left disabled: this kernel_fog tree has an
+	# incomplete WALT port (kernel/sched/core.c and fair.c reference WALT-only
+	# symbols like cpu_isolated_mask/allowed_mask that aren't defined anywhere when
+	# CONFIG_SCHED_WALT=y), so enabling it fails the build. CPU_BOOST and
+	# MSM_PERFORMANCE don't depend on WALT and are safe on their own.
 	scripts/config --file out/.config \
-		-e CPU_BOOST -e MSM_PERFORMANCE -e SCHED_WALT
+		-e CPU_BOOST -e MSM_PERFORMANCE
 fi
 if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ]
 then
