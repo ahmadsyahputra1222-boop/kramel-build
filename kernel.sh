@@ -105,6 +105,13 @@ FILES=Image.gz
 # 1 is YES | 0 is NO(default)
 BUILD_DTBO=0
 
+# Re-enable stock Qualcomm boost drivers that fog.config turns off: touch/launch input-boost
+# (CPU_BOOST + MSM_PERFORMANCE) and the WALT scheduler, so the CPU ramps to its max clock
+# faster under load. This is NOT overclocking: bengal's max frequency/voltage LUT is fixed
+# by the bootloader firmware and can't be raised from the kernel.
+# 1 is YES(default) | 0 is NO
+PERF_BOOST=1
+
 # PATCH KERNELSU
 KSU=1
 if [ $KSU = 1 ]
@@ -296,6 +303,11 @@ make O=out $DEFCONFIG
 
 # Disable 32-bit compat vDSO (fails to build with clang: __NR_compat_* undeclared)
 scripts/config --file out/.config -d COMPAT_VDSO
+if [ "$PERF_BOOST" = "1" ]
+then
+	scripts/config --file out/.config \
+		-e CPU_BOOST -e MSM_PERFORMANCE -e SCHED_WALT
+fi
 if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ]
 then
 	scripts/config --file out/.config \
