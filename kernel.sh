@@ -53,7 +53,7 @@ KERNEL_DIR="$(pwd)"
 BASEDIR="$(basename "$KERNEL_DIR")"
 
 # The name of the Kernel, to name the ZIP
-ZIPNAME="SevernV2-NDKSU"
+ZIPNAME="SevernV1-NDKSU"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
@@ -142,6 +142,27 @@ fi
 echo "[+] KernelSU hook method: $KSU_HOOK"
 fi
 
+# SUSFS (hide root/mount for KernelSU)
+# 1 is YES | 0 is NO
+# Patch must be applied BEFORE make defconfig. Check the .rej list in the log:
+# if there are failed hunks, they must be merged manually.
+SUSFS=1
+if [ "$SUSFS" = 1 ]
+then
+	git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu -b kernel-4.19 "$WORKDIR/susfs4ksu"
+	cp "$WORKDIR"/susfs4ksu/kernel_patches/fs/* fs/
+	cp "$WORKDIR"/susfs4ksu/kernel_patches/include/linux/* include/linux/
+	patch -p1 --forward < "$WORKDIR/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.19.patch" || true
+	if grep -q "KSU_SUSFS" KernelSU/kernel/Kconfig
+	then
+		echo "[+] NadekoSU already supports SUSFS"
+	else
+		patch -p1 -d KernelSU --forward < "$WORKDIR/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" || true
+	fi
+	echo "[+] Failed hunks (.rej):"
+	find . -name '*.rej'
+fi
+
 # Sign the zipfile
 # 1 is YES | 0 is NO
 SIGN=0
@@ -178,7 +199,7 @@ LOG_DEBUG=0
 
 # shellcheck source=/etc/os-release
 export DISTRO=$(source /etc/os-release && echo "${NAME}")
-export KBUILD_BUILD_HOST=$(uname -a | awk '{print $2}')
+export KBUILD_BUILD_HOST="hebattkamuu"
 TERM=xterm
 
 #Check Kernel Version
@@ -362,6 +383,18 @@ then
 		-e KSU_MANUAL_HOOK_AUTO_INITRC_HOOK \
 		-d KSU_HACK_ARM64_BRANCH_LINK
 fi
+
+# Kernel name shown in Settings (4.19.xxx-Severn)
+scripts/config --file out/.config --set-str LOCALVERSION "-Severn" -d LOCALVERSION_AUTO
+
+# SUSFS config
+if [ "$SUSFS" = "1" ]
+then
+	scripts/config --file out/.config \
+		-e KSU_SUSFS -e KSU_SUSFS_SUS_PATH -e KSU_SUSFS_SUS_MOUNT \
+		-e KSU_SUSFS_SUS_KSTAT -e KSU_SUSFS_SPOOF_UNAME
+fi
+
 make O=out olddefconfig
 if [ $DEF_REG = 1 ]; then
 
