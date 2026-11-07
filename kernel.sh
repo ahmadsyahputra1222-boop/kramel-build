@@ -144,9 +144,12 @@ fi
 
 # SUSFS (hide root/mount for KernelSU)
 # 1 is YES | 0 is NO
-# Patch must be applied BEFORE make defconfig. Check the .rej list in the log:
-# if there are failed hunks, they must be merged manually.
-SUSFS=1
+# KEEP 0 FOR NOW. The build log showed it cannot work on this tree as-is:
+#  - the stock susfs patch fails on kernel_fog (fs/namespace.c, include/linux/mount.h, kernel/sys.c)
+#  - enabling KSU_SUSFS makes NadekoSU switch to "SuSFS inline hook" mode (replaces manual hook),
+#    which requires inline hooks in sys.c/exec.c/open.c/read_write.c/stat.c/reboot.c/input.c
+#    that this kernel does not have (patchs/KernelSU.patch only covers manual hook).
+SUSFS=0
 if [ "$SUSFS" = 1 ]
 then
 	git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu -b kernel-4.19 "$WORKDIR/susfs4ksu"
