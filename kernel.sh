@@ -142,28 +142,27 @@ fi
 echo "[+] KernelSU hook method: $KSU_HOOK"
 fi
 
-# SUSFS (hide root/mount for KernelSU)
+# SUSFS (hide root/mount for KernelSU) - inline hook mode with NadekoSU
 # 1 is YES | 0 is NO
-# KEEP 0 FOR NOW. The build log showed it cannot work on this tree as-is:
-#  - the stock susfs patch fails on kernel_fog (fs/namespace.c, include/linux/mount.h, kernel/sys.c)
-#  - enabling KSU_SUSFS makes NadekoSU switch to "SuSFS inline hook" mode (replaces manual hook),
-#    which requires inline hooks in sys.c/exec.c/open.c/read_write.c/stat.c/reboot.c/input.c
-#    that this kernel does not have (patchs/KernelSU.patch only covers manual hook).
-SUSFS=0
+# Needs the in-kernel SUSFS port (taken from Romeo13card/kernel_xiaomi_sm6225,
+# branch Kuroha/BakaSU+SUSFS, adapted to NadekoSU's hook API). Put
+# susfs-fog-nadeko.patch in patchs/ next to this script, OR commit it to the
+# kernel source itself (then fs/susfs.c exists and the patch step is skipped).
+# SUSFS replaces the manual hook: patchs/KernelSU.patch is NOT used when SUSFS=1.
+SUSFS=1
 if [ "$SUSFS" = 1 ]
 then
-	git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu -b kernel-4.19 "$WORKDIR/susfs4ksu"
-	cp "$WORKDIR"/susfs4ksu/kernel_patches/fs/* fs/
-	cp "$WORKDIR"/susfs4ksu/kernel_patches/include/linux/* include/linux/
-	patch -p1 --forward < "$WORKDIR/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.19.patch" || true
-	if grep -q "KSU_SUSFS" KernelSU/kernel/Kconfig
+	if [ ! -f fs/susfs.c ]
 	then
-		echo "[+] NadekoSU already supports SUSFS"
+		if [ ! -f "$WORKDIR/patchs/susfs-fog-nadeko.patch" ]
+		then
+			msger -e "SUSFS=1 but fs/susfs.c is missing and patchs/susfs-fog-nadeko.patch was not found"
+		fi
+		msger -n "|| Applying SUSFS patch ||"
+		patch -p1 --forward --no-backup-if-mismatch < "$WORKDIR/patchs/susfs-fog-nadeko.patch"
 	else
-		patch -p1 -d KernelSU --forward < "$WORKDIR/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" || true
+		msger -n "|| fs/susfs.c already in source, skipping SUSFS patch ||"
 	fi
-	echo "[+] Failed hunks (.rej):"
-	find . -name '*.rej'
 fi
 
 # Sign the zipfile
@@ -377,7 +376,7 @@ then
 	scripts/config --file out/.config \
 		-e CPU_BOOST -e MSM_PERFORMANCE
 fi
-if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ]
+if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ] && [ "$SUSFS" != "1" ]
 then
 	scripts/config --file out/.config \
 		-e KSU -e KSU_MANUAL_HOOK \
@@ -390,12 +389,17 @@ fi
 # Kernel name shown in Settings (4.19.xxx-Severn)
 scripts/config --file out/.config --set-str LOCALVERSION "-Severn" -d LOCALVERSION_AUTO
 
-# SUSFS config
+# SUSFS config (inline hook mode: KSU_MANUAL_HOOK must be off)
 if [ "$SUSFS" = "1" ]
 then
 	scripts/config --file out/.config \
-		-e KSU_SUSFS -e KSU_SUSFS_SUS_PATH -e KSU_SUSFS_SUS_MOUNT \
-		-e KSU_SUSFS_SUS_KSTAT -e KSU_SUSFS_SPOOF_UNAME
+		-e KSU -d KSU_MANUAL_HOOK -e KSU_SUSFS \
+		-e KSU_SUSFS_SUS_PATH -e KSU_SUSFS_SUS_MOUNT \
+		-e KSU_SUSFS_SUS_KSTAT -e KSU_SUSFS_SPOOF_UNAME \
+		-e KSU_SUSFS_SUS_MAP -e KSU_SUSFS_OPEN_REDIRECT \
+		-e KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
+		-e KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
+		-e DEBUG_KERNEL -e KALLSYMS -e KALLSYMS_ALL
 fi
 
 make O=out olddefconfig
@@ -409,7 +413,7 @@ if [ $DEF_REG = 1 ]; then
 	fi
 
 
-if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ]
+if [ "$KSU" = "1" ] && [ "$KSU_HOOK" = "manual" ] && [ "$SUSFS" != "1" ]
 then
 	cp -r "$WORKDIR/patchs" "$KERNEL_DIR/"
 	patch -p1 < "$KERNEL_DIR/patchs/KernelSU.patch"
