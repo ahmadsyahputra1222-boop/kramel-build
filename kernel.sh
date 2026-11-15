@@ -53,7 +53,7 @@ KERNEL_DIR="$(pwd)"
 BASEDIR="$(basename "$KERNEL_DIR")"
 
 # The name of the Kernel, to name the ZIP
-ZIPNAME="SevernV2-NDKSU-Susfs"
+ZIPNAME="SevernV2-NDKSU"
 
 # Build Author
 # Take care, it should be a universal and most probably, case-sensitive
@@ -400,6 +400,9 @@ then
 		-e KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
 		-e KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
 		-e DEBUG_KERNEL -e KALLSYMS -e KALLSYMS_ALL
+	# DEBUG_KERNEL turns SCHED_DEBUG on by default, and this tree's kernel/sched/debug.c
+	# doesn't build (min_vruntime / PM() errors), so keep it off.
+	scripts/config --file out/.config -d SCHED_DEBUG
 fi
 
 make O=out olddefconfig
